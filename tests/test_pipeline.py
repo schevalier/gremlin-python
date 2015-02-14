@@ -1,6 +1,5 @@
 # Test scenarios based on http://gremlindocs.com/
 
-from nose.tools import nottest
 from gremthon import Gremthon
 
 #Java imports
@@ -56,7 +55,6 @@ def test_labels():
     assert [e.id for e in g.v(1).out_e().has('label','created')] == ['9']
 
 
-@nottest
 def test_link_both_in_out():
     #TODO: see why except doesn't seem to be working as expected
     # marko = g.v(1)
@@ -190,106 +188,86 @@ def test_random():
 
 #TODO: keep testing!
 
-@nottest
-def test_retain():
-    pass
+# def test_retain():
+#     pass
 
 
 def test_simple_path():
     assert [v.id for v in g.v(1).out().in_().simple_path()] == ['4', '6']
 
 
-@nottest
-def test_aggregate():
-    pass
+# def test_aggregate():
+#     pass
 
 
-@nottest
-def test_group_by():
-    pass
-
-
-@nottest
-def test_group_count():
-    pass
-
-
-@nottest
-def test_optional():
-    pass
-
-
-@nottest
-def test_side_effect():
-    pass
-
-
-@nottest
-def test_store():
-    pass
-
-@nottest
-def test_table():
-    pass
-
-
-@nottest
-def test_tree():
-    pass
-
-
-@nottest
-def test_copy_split():
-    pass
-
-
-@nottest
-def test_exhaust_merge():
-    pass
-
-
-@nottest
-def test_fair_merge():
-    pass
-
-
-@nottest
-def test_loop():
-    pass
-
-
-@nottest
-def test_keys():
-    pass
-
-
-@nottest
-def test_remove():
-    pass
-
-
-@nottest
-def test_value():
-    pass
-
-
-@nottest
-def test_add_edge():
-    pass
-
-
-@nottest
-def test_add_vertex():
-    pass
-
-
-@nottest
-def test_index():
-    pass
-
-
-@nottest
-def test_fill():
-    pass
-
-
+# def test_group_by():
+#     pass
+#
+#
+# def test_group_count():
+#     pass
+#
+#
+# def test_optional():
+#     pass
+#
+#
+# def test_side_effect():
+#     pass
+#
+#
+# def test_store():
+#     pass
+#
+# def test_table():
+#     pass
+#
+#
+# def test_tree():
+#     pass
+#
+#
+# def test_copy_split():
+#     pass
+#
+#
+# def test_exhaust_merge():
+#     pass
+#
+#
+# def test_fair_merge():
+#     pass
+#
+#
+# def test_loop():
+#     pass
+#
+#
+# def test_keys():
+#     pass
+#
+#
+# def test_remove():
+#     pass
+#
+#
+# def test_value():
+#     pass
+#
+#
+# def test_add_edge():
+#     pass
+#
+#
+# def test_add_vertex():
+#     pass
+#
+#
+# def test_index():
+#     pass
+#
+#
+# def test_fill():
+#     pass
+#
+#

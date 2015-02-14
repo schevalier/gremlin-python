@@ -4,6 +4,8 @@ import com.tinkerpop.blueprints.Graph;
 import com.tinkerpop.blueprints.impls.tg.TinkerGraphFactory;
 
 import javax.script.*;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,4 +27,16 @@ public class GremlinPythonScriptEngineFactoryTest {
         engine.eval("g.v(1).out('knows').has('name','josh').fill(results)");
         engine.eval("assert results[0].id == '4'");
     }
+
+    @Test
+    public void testPipeline() throws ScriptException, FileNotFoundException {
+        ScriptEngineManager manager = new ScriptEngineManager();
+        ScriptEngine engine = manager.getEngineByName("gremlin-python");
+
+        engine.eval("from inspect import isfunction");
+        engine.eval(new FileReader("tests/test_pipeline.py"));
+        engine.eval("pipeline_tests = [v for k, v in dict(locals()).items() if isfunction(v) and k.startswith('test_')]");
+        engine.eval("[pipeline_test() for pipeline_test in pipeline_tests]");
+    }
+
 }
