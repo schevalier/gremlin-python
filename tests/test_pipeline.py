@@ -260,7 +260,7 @@ def test_add_edge():
 #
 #
 def test_add_vertex():
-    g.add_vertex(None, name="tim")
+    assert g.add_vertex(None, name="tim")
 #
 #
 # def test_index():
