@@ -36,6 +36,7 @@ public class GremlinPythonScriptEngineFactoryTest {
         engine.eval("from inspect import isfunction");
         engine.eval(new FileReader("tests/test_pipeline.py"));
         engine.eval("pipeline_tests = [v for k, v in dict(locals()).items() if isfunction(v) and k.startswith('test_')]");
+        engine.eval("pipeline_tests = sorted(pipeline_tests, key=lambda f: f.func_code.co_firstlineno)");
         engine.eval("[pipeline_test() for pipeline_test in pipeline_tests]");
     }
 
