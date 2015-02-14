@@ -46,12 +46,17 @@ Run a local, interactive gremthon session:
 That will automatically load up a sample graph so that you can follow http://gremlindocs.com/
 except with Python syntax
 
-Run all the gremlin-jython tests
+Run all the python tests
 
 .. code-block:: bash
 
     $ ~/jython2.7b3/bin/nosetests --rednose
 
+Compile, test and package the gremlin-python jar:
+
+.. code-block:: bash
+
+    $ mvn clean package
 
 rexter
 ------
