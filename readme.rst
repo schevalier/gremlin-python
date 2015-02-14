@@ -1,3 +1,7 @@
+.. image:: https://travis-ci.org/pokitdok/gremlin-python.svg?branch=master
+    :target: https://travis-ci.org/pokitdok/gremlin-python
+
+
 gremlin-python
 ==============
 
