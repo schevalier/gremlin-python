@@ -255,12 +255,12 @@ def test_simple_path():
 #     pass
 #
 #
-# def test_add_edge():
-#     pass
+def test_add_edge():
+    assert g.add_edge(None, g.add_vertex(None, name="tim"), g.add_vertex(None, name="lisa"), "knows")
 #
 #
-# def test_add_vertex():
-#     pass
+def test_add_vertex():
+    g.add_vertex(None, name="tim")
 #
 #
 # def test_index():

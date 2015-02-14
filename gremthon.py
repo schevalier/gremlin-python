@@ -431,11 +431,17 @@ class Gremthon(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.graph.shutdown()
 
-    def add_edge(self):
-        pass
+    def add_edge(self, e_id, out_v, in_v, label, **kwargs):
+        e = self.graph.addEdge(e_id, out_v, in_v, label)
+        for kw in kwargs:
+            e.setProperty(kw, kwargs[kw])
+        return e
 
-    def add_vertex(self):
-        pass
+    def add_vertex(self, v_id, **kwargs):
+        v = self.graph.addVertex(v_id)
+        for kw in kwargs:
+            v.setProperty(kw, kwargs[kw])
+        return v
 
     @property
     def E(self):
