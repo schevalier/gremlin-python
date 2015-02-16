@@ -239,8 +239,8 @@ def test_simple_path():
 #     pass
 #
 #
-# def test_loop():
-#     pass
+def test_loop():
+    assert set([v.id for v in g.v(1).out().loop(1, lambda x: x.loops<3)]) == {'3', '5'}
 #
 #
 # def test_keys():
