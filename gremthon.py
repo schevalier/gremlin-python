@@ -33,6 +33,9 @@ class GremthonEdge(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def get_blueprints_edge(self):
+        return self.edge
+
     @property
     def properties(self):
         return self.edge.propertyKeys
@@ -76,6 +79,9 @@ class GremthonVertex(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_blueprints_vertex(self):
+        return self.vertex
 
     @property
     def properties(self):
@@ -250,7 +256,10 @@ class GremthonPipeline(object):
 
     #TODO: ifThenElse ?
 
-    #TODO: loop ?
+    def loop(self, step, while_function, emit_function=None):
+        if emit_function:
+            return self.__class__(self.pipeline.loop(step, while_function, emit_function))
+        return self.__class__(self.pipeline.loop(step, while_function))
 
     def and_(self, *args):
         and_method = getattr(self.pipeline, 'and')
@@ -431,17 +440,17 @@ class Gremthon(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.graph.shutdown()
 
-    def add_edge(self, e_id, out_v, in_v, label, **kwargs):
-        e = self.graph.addEdge(e_id, out_v, in_v, label)
+    def add_edge(self, index, out_v, in_v, label, **kwargs):
+        e = self.graph.addEdge(index, out_v.get_blueprints_vertex(), in_v.get_blueprints_vertex(), label)
         for kw in kwargs:
             e.setProperty(kw, kwargs[kw])
-        return e
+        return map_gremthon_type(e)
 
-    def add_vertex(self, v_id, **kwargs):
-        v = self.graph.addVertex(v_id)
+    def add_vertex(self, index, **kwargs):
+        v = self.graph.addVertex(index)
         for kw in kwargs:
             v.setProperty(kw, kwargs[kw])
-        return v
+        return map_gremthon_type(v)
 
     @property
     def E(self):
