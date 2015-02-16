@@ -442,7 +442,11 @@ class Gremthon(object):
         self.graph.shutdown()
 
     def add_edge(self, index, out_v, in_v, label, **kwargs):
-        e = self.graph.addEdge(index, out_v.get_blueprints_vertex(), in_v.get_blueprints_vertex(), label)
+        if isinstance(out_v, GremthonVertex):
+            out_v = out_v.get_blueprints_vertex()
+        if isinstance(in_v, GremthonVertex):
+            in_v = in_v.get_blueprints_vertex()
+        e = self.graph.addEdge(index, out_v, in_v, label)
         for kw in kwargs:
             e.setProperty(kw, kwargs[kw])
         return map_gremthon_type(e)
