@@ -5,8 +5,10 @@ import org.python.jsr223.PyScriptEngineFactory;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +65,8 @@ public class GremlinPythonScriptEngineFactory extends PyScriptEngineFactory {
         try {
             engine = super.getScriptEngine();
             //Load up gremthon for use within this Python script engine
-            engine.eval(new FileReader("gremthon.py"));
+            ClassLoader engineClassLoader = GremlinPythonScriptEngineFactory.class.getClassLoader();
+            engine.eval(new BufferedReader(new InputStreamReader(engineClassLoader.getResourceAsStream("gremthon.py"))));
         } catch (Exception e) {
             e.printStackTrace();
         }
