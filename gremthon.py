@@ -254,7 +254,8 @@ class GremthonPipeline(object):
     def fair_merge(self):
         return self.__class__(self.pipeline.fairMerge())
 
-    #TODO: ifThenElse ?
+    def if_then_else(self, if_function, then_function, else_function):
+        return self.__class__(self.pipeline.ifThenElse(if_function, then_function, else_function))
 
     def loop(self, step, while_function, emit_function=None):
         if emit_function:
