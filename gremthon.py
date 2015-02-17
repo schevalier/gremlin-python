@@ -437,6 +437,9 @@ class Gremthon(object):
     def __enter__(self):
         return self
 
+    def __repr__(self):
+        return self.graph.toString()
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.graph.shutdown()
 
