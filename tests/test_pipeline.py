@@ -239,8 +239,19 @@ def test_simple_path():
 #     pass
 #
 #
+
+def test_if_then_else():
+    assert set(g.V.if_then_else(lambda x: x.id == '1', lambda x: x.getProperty("age"),
+                                lambda x: x.getProperty("name"))) == {'vadas', 'josh', 'lop', 'ripple', 'peter', 29}
+
+
 def test_loop():
-    assert set([v.id for v in g.v(1).out().loop(1, lambda x: x.loops<3)]) == {'3', '5'}
+    assert set([v.id for v in g.v(1).out().loop(1, lambda x: x.loops < 3)]) == {'3', '5'}
+    # assert set([v.id for v in g.v(1).out().as_("x").loop("x", lambda x: x.loops < 3)]) == {'3', '5'}
+    assert set([v.id for v in g.v(1).out().loop(1, lambda x: x.loops < 3, lambda x: x.object.id == '3')]) == {'3'}
+    # assert set([v.id for v in g.v(1).out().as_("x").loop("x", lambda x: x.loops < 3,
+    #                                                      lambda x: x.object.id == '3')]) == {'3'}
+
 #
 #
 # def test_keys():
