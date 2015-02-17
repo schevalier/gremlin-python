@@ -69,7 +69,7 @@ def test_has():
 
 
 def test_has_not():
-    assert [v.id for v in g.V.has_not('lang')] == ['1', '2', '4', '6']
+    assert set(v.id for v in g.V.has_not('lang')) == {'1', '2', '4', '6'}
 
 
 def test_link_both_in_out():
@@ -237,7 +237,7 @@ def test_side_effect():
         youngest = it.age if youngest > it.age else youngest
 
     assert youngest == sys.maxsize
-    assert g.V.has('age').side_effect(find_youngest).age == [29, 27, 32, 35]
+    assert set(g.V.has('age').side_effect(find_youngest).age) == {29, 27, 32, 35}
     assert youngest == 27
 
 
