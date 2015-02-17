@@ -62,7 +62,7 @@ def test_has():
     assert g.V.has('name', 'mark').name == []
     assert g.V.has('name', 'marko').name == ['marko']
     assert g.V.has('name', 'mark', predicate=lambda a,b: b in a).name == ['marko']
-    assert [v.id for v in g.V.has('age')] == ['1', '2', '4', '6']
+    assert set([v.id for v in g.V.has('age')]) == {'1', '2', '4', '6'}
     assert g.V.has('age', 30, compare_token='gt').age == [32, 35]
     assert g.V.has('age', 30, compare_token='lt').age == [29, 27]
     assert g.V.has('age', 29, compare_token='gte').age == [29, 32, 35]
