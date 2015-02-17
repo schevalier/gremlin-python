@@ -1,12 +1,15 @@
 # Test scenarios based on http://gremlindocs.com/
 
 from gremthon import Gremthon
+import sys
 
 #Java imports
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
 
 graph = TinkerGraphFactory.createTinkerGraph()
 g = Gremthon(graph)
+
+youngest = sys.maxsize
 
 
 def test_both():
@@ -43,7 +46,7 @@ def test_get_adjacent_vertices():
 
 
 def test_properties():
-    assert g.v(3).name == 'lop'
+    assert g.v(3).name == ['lop']
     assert list(g.v(3))[0].name == 'lop'
     assert list(g.v(3))[0]['name'] == 'lop'
     assert list(g.v(3))[0].get_property('name') == 'lop'
@@ -53,6 +56,20 @@ def test_labels():
     assert list(g.v(6).out_e())[0].label == 'created'
     assert [e.id for e in g.v(1).out_e().filter(lambda it: it.label == 'created')] == ['9']
     assert [e.id for e in g.v(1).out_e().has('label','created')] == ['9']
+
+
+def test_has():
+    assert g.V.has('name', 'mark').name == []
+    assert g.V.has('name', 'marko').name == ['marko']
+    assert g.V.has('name', 'mark', predicate=lambda a,b: b in a).name == ['marko']
+    assert [v.id for v in g.V.has('age')] == ['1', '2', '4', '6']
+    assert g.V.has('age', 30, compare_token='gt').age == [32, 35]
+    assert g.V.has('age', 30, compare_token='lt').age == [29, 27]
+    assert g.V.has('age', 29, compare_token='gte').age == [29, 32, 35]
+
+
+def test_has_not():
+    assert [v.id for v in g.V.has_not('lang')] == ['1', '2', '4', '6']
 
 
 def test_link_both_in_out():
@@ -153,7 +170,7 @@ def test_shuffle():
 def test_vertex_iteration():
     assert set([v.id for v in g.V]) == {'3', '2', '1', '6', '5', '4'}
     assert [v.id for v in g.vertices("name", "marko")] == ['1']
-    assert g.vertices("name", "marko").name == 'marko'
+    assert g.vertices("name", "marko").name == ['marko']
 
 
 def test_index_filter():
@@ -212,10 +229,18 @@ def test_simple_path():
 #     pass
 #
 #
-# def test_side_effect():
-#     pass
-#
-#
+
+def test_side_effect():
+    global youngest
+    def find_youngest(it):
+        global youngest
+        youngest = it.age if youngest > it.age else youngest
+
+    assert youngest == sys.maxsize
+    assert g.V.has('age').side_effect(find_youngest).age == [29, 27, 32, 35]
+    assert youngest == 27
+
+
 # def test_store():
 #     pass
 #

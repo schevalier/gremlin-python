@@ -1,4 +1,5 @@
 import glob
+from inspect import isfunction
 from itertools import islice
 import os
 import sys
@@ -12,10 +13,11 @@ def load_gremthon_jars():
 load_gremthon_jars()
 
 #gremlin related imports (Java)
-from com.tinkerpop.blueprints import Direction, Vertex
+from com.tinkerpop.blueprints import Direction, Predicate, Vertex
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
 from com.tinkerpop.blueprints.impls.tg import TinkerEdge
 from com.tinkerpop.blueprints.impls.tg import TinkerVertex
+from com.tinkerpop.gremlin import Tokens
 from com.tinkerpop.gremlin.java import GremlinPipeline
 from com.tinkerpop.pipes.util import PipesFunction
 from java.util import ArrayList, Collection, HashMap
@@ -131,6 +133,14 @@ class GremthonPipesFunction(PipesFunction):
         return self.function(map_gremthon_type(argument))
 
 
+class GremthonPredicate(Predicate):
+    def __init__(self, function):
+        self.function = function
+
+    def evaluate(self, first, second):
+        return self.function(first, second)
+
+
 class GremthonPipeline(object):
 
     def __init__(self, pipeline):
@@ -147,6 +157,9 @@ class GremthonPipeline(object):
             return islice(self, item.start, item.stop, item.step)
         else:
             raise KeyError("Item must be non-negative number or slice (not {0})".format(item))
+
+    def __getattr__(self, attribute):
+        return [getattr(item, attribute, None) for item in self]
 
     def __repr__(self):
         return '\n'.join([str(item) for item in self])
@@ -182,11 +195,25 @@ class GremthonPipeline(object):
         else:
             return self.__class__(self.pipeline.V())
 
-    def has(self, key=None, value=None):
+    def has(self, key=None, value=None, compare_token=None, predicate=None):
+        if predicate is not None:
+            if isfunction(predicate):
+                return self.__class__(self.pipeline.has(key, GremthonPredicate(predicate), value))
+            elif hasattr(predicate, 'evaluate'):
+                return self.__class__(self.pipeline.has(key, predicate, value))
+            else:
+                raise ValueError('Incorrect value for predicate.  Must be function or implement Predicate interface')
+
+        if compare_token is not None:
+            return self.__class__(self.pipeline.has(key, getattr(Tokens.T, compare_token, None), value))
+
         if key is not None and value is None:
             return self.__class__(self.pipeline.has(key))
         else:
             return self.__class__(self.pipeline.has(key, value))
+
+    def has_not(self, key):
+        return self.__class__(self.pipeline.hasNot(key))
 
     def interval(self, key, start, end):
         if isinstance(start, float):
@@ -326,7 +353,7 @@ class GremthonPipeline(object):
             return self.__class__(self.pipeline.linkBoth(label, named_step_other_vertex))
 
     def side_effect(self, side_effect_func):
-        return self.__class__(self.pipeline.sideEffect(side_effect_func))
+        return self.__class__(self.pipeline.sideEffect(GremthonPipesFunction(side_effect_func)))
 
     def store(self, side_effect_func):
         #TODO: handle other store variations
@@ -347,10 +374,6 @@ class GremthonPipeline(object):
             return self.__class__(self.pipeline.memoize(named_step))
         else:
             return self.__class__(self.pipeline.memoize(named_step, map))
-
-    @property
-    def name(self):
-        return '\n'.join([item.name for item in self])
 
     def order(self):
         #TODO: handle other variations
@@ -430,6 +453,98 @@ class GremthonPipeline(object):
 
 
 
+
+class GremthonManagementSystem(object):
+
+    def __init__(self, management_system):
+        self.management_system = management_system
+
+    def __getitem__(self, path):
+        return self.management_system.get(path)
+
+    def __setitem__(self, key, value):
+        return self.management_system.set(key, value)
+
+    @property
+    def open(self):
+        return self.management_system.isOpen()
+
+    def close(self):
+        self.management_system.close()
+
+    def commit(self):
+        self.management_system.commit()
+
+    def rollback(self):
+        self.management_system.rollback()
+
+    def build_edge_index(self):
+        pass
+
+    def build_property_index(self):
+        pass
+
+    def graph_index(self, name):
+        return self.management_system.getGraphIndex(name)
+
+    def add_index_key(self):
+        pass
+
+    def build_index(self):
+        pass
+
+    def update_index(self):
+        pass
+
+    def change_name(self):
+        pass
+
+    def ttl(self):
+        pass
+
+    def set_ttl(self):
+        pass
+
+    def contains_relation_type(self, name):
+        return self.management_system.containsRelationType(name)
+
+    def relation_type(self, name):
+        return self.management_system.getRelationType(name)
+
+    def contains_property_key(self, name):
+        return self.management_system.containsPropertyKey(name)
+
+    def property_key(self, name):
+        return self.management_system.getPropertyKey(name)
+
+    def contains_edge_label(self, name):
+        return self.management_system.containsEdgeLabel(name)
+
+    def edge_label(self, name):
+        return self.management_system.getEdgeLabel(name)
+
+    def make_property_key(self, name):
+        return self.management_system.makePropertyKey(name)
+
+    def make_edge_label(self, name):
+        return self.management_system.makeEdgeLabel(name)
+
+    def contains_vertex_label(self, name):
+        return self.management_system.containsVertexLabel(name)
+
+    def vertex_label(self, name):
+        return self.management_system.getVertexLabel(name)
+
+    def make_vertex_label(self, name):
+        return self.management_system.makeVertexLabel(name)
+
+    def vertex_labels(self):
+        return self.management_system.getVertexLabels()
+
+
+
+
+
 class Gremthon(object):
 
     def __init__(self, graph):
@@ -479,6 +594,10 @@ class Gremthon(object):
 
     def v(self, index):
         return GremthonPipeline(GremlinPipeline(self.graph.getVertex(index)))
+
+    @property
+    def management_system(self):
+        return GremthonManagementSystem(self.graph.getManagementSystem())
 
 
 if __name__ == "__main__":
