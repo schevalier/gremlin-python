@@ -1,6 +1,5 @@
 from gremthon import Gremthon
 import os
-import tempfile
 
 #Java imports
 from com.tinkerpop.blueprints import Direction, Vertex, Edge
@@ -17,8 +16,10 @@ from com.thinkaurelius.titan.graphdb.types import VertexLabelVertex
 from com.thinkaurelius.titan.graphdb.types import StandardVertexLabelMaker
 from com.thinkaurelius.titan.core import Cardinality
 from java.lang import Double, String, Integer
+from java.nio.file import Files
 
 
+graph_son_filename = os.path.join(str(Files.createTempDirectory('temp_graph_son_dir')), 'graph.son')
 
 graph = TinkerGraphFactory.createTinkerGraph()
 titan_graph = TitanFactory.build().set('storage.backend','inmemory').open()
@@ -167,15 +168,13 @@ def test_build_edge_index():
 
 
 def test_output_graph():
-    filename = tempfile.gettempdir() + "test-graph.son"
-    tg.output_graph(filename)
-    assert os.path.exists(filename)
+    tg.output_graph(graph_son_filename)
+    assert os.path.exists(graph_son_filename)
 
 
 def test_input_graph():
-    filename = tempfile.gettempdir() + "test-graph.son"
     temp_titan_graph = TitanFactory.build().set('storage.backend','inmemory').open()
     temp_g = Gremthon(temp_titan_graph)
-    temp_g.input_graph(filename)
+    temp_g.input_graph(graph_son_filename)
     assert temp_g.V.count() == 2
 
