@@ -65,6 +65,12 @@
             <version>6.8.8</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.thinkaurelius.titan</groupId>
+            <artifactId>titan-core</artifactId>
+            <version>0.5.4</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

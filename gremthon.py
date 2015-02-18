@@ -1,3 +1,4 @@
+import atexit
 import glob
 from inspect import isfunction
 from itertools import islice
@@ -13,15 +14,15 @@ def load_gremthon_jars():
 load_gremthon_jars()
 
 #gremlin related imports (Java)
-from com.tinkerpop.blueprints import Direction, Predicate, Vertex
+from com.tinkerpop.blueprints import Direction, Predicate, Vertex, Edge
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
-from com.tinkerpop.blueprints.impls.tg import TinkerEdge
-from com.tinkerpop.blueprints.impls.tg import TinkerVertex
+from com.tinkerpop.blueprints.util.io.graphson import GraphSONWriter, GraphSONReader
 from com.tinkerpop.gremlin import Tokens
 from com.tinkerpop.gremlin.java import GremlinPipeline
 from com.tinkerpop.pipes.util import PipesFunction
 from java.util import ArrayList, Collection, HashMap
-from java.lang import Float
+from java.lang import Float, String
+from java.io import FileOutputStream, FileInputStream
 
 
 class GremthonEdge(object):
@@ -112,9 +113,9 @@ class GremthonVertex(object):
 
 
 def map_gremthon_type(obj):
-    if isinstance(obj, TinkerEdge):
+    if isinstance(obj, Edge):
         return GremthonEdge(obj)
-    elif isinstance(obj, TinkerVertex):
+    elif isinstance(obj, Vertex):
         return GremthonVertex(obj)
     elif isinstance(obj, HashMap):
         return dict(obj)
@@ -456,14 +457,18 @@ class GremthonPipeline(object):
 
 class GremthonManagementSystem(object):
 
-    def __init__(self, management_system):
+    def __init__(self, management_system, default_cardinality=None):
         self.management_system = management_system
+        self.default_cardinality = default_cardinality
 
     def __getitem__(self, path):
         return self.management_system.get(path)
 
     def __setitem__(self, key, value):
         return self.management_system.set(key, value)
+
+    def __repr__(self):
+        return self.management_system
 
     @property
     def open(self):
@@ -478,32 +483,29 @@ class GremthonManagementSystem(object):
     def rollback(self):
         self.management_system.rollback()
 
-    def build_edge_index(self):
-        pass
-
-    def build_property_index(self):
-        pass
+    def build_edge_index(self, label, name, keys=None, direction=Direction.BOTH, sort_order=None):
+        if sort_order is not None:
+            eib = self.management_system.buildEdgeIndex(label, name, direction, sort_order, keys)
+        else:
+            eib = self.management_system.buildEdgeIndex(label, name, direction, keys)
+        return eib
 
     def graph_index(self, name):
         return self.management_system.getGraphIndex(name)
 
-    def add_index_key(self):
-        pass
-
-    def build_index(self):
-        pass
-
-    def update_index(self):
-        pass
-
-    def change_name(self):
-        pass
-
-    def ttl(self):
-        pass
-
-    def set_ttl(self):
-        pass
+    def build_index(self, name, element_type, keys=None, backing_index=None, unique=False):
+        if keys is None:
+            keys = []
+        index = self.management_system.buildIndex(name, element_type)
+        for key in keys:
+            index.addKey(key)
+        if unique:
+            index.unique()
+        if backing_index:
+            index.buildMixedIndex(backing_index)
+        else:
+            index.buildCompositeIndex()
+        return index
 
     def contains_relation_type(self, name):
         return self.management_system.containsRelationType(name)
@@ -523,11 +525,35 @@ class GremthonManagementSystem(object):
     def edge_label(self, name):
         return self.management_system.getEdgeLabel(name)
 
-    def make_property_key(self, name):
-        return self.management_system.makePropertyKey(name)
+    def make_property_key(self, name, data_type=None, cardinality=None, auto_make=True):
+        pkm = self.management_system.makePropertyKey(name)
+        if data_type:
+            pkm.dataType(data_type)
+        else:
+            pkm.dataType(String)
 
-    def make_edge_label(self, name):
-        return self.management_system.makeEdgeLabel(name)
+        if cardinality:
+            pkm.cardinality(cardinality)
+        elif self.default_cardinality:
+            pkm.cardinality(self.default_cardinality)
+
+        if auto_make:
+            return pkm.make()
+        else:
+            return pkm
+
+
+    def make_edge_label(self, name, multiplicity=None, auto_make=True):
+
+        elm = self.management_system.makeEdgeLabel(name)
+
+        if multiplicity:
+            elm.multiplicity(multiplicity)
+
+        if auto_make:
+            return elm.make()
+        else:
+            return elm
 
     def contains_vertex_label(self, name):
         return self.management_system.containsVertexLabel(name)
@@ -535,20 +561,22 @@ class GremthonManagementSystem(object):
     def vertex_label(self, name):
         return self.management_system.getVertexLabel(name)
 
-    def make_vertex_label(self, name):
-        return self.management_system.makeVertexLabel(name)
+    def make_vertex_label(self, name, auto_make=True):
+        vlm = self.management_system.makeVertexLabel(name)
+        if auto_make:
+            return vlm.make()
+        else:
+            return vlm
 
     def vertex_labels(self):
         return self.management_system.getVertexLabels()
-
-
-
 
 
 class Gremthon(object):
 
     def __init__(self, graph):
         self.graph = graph
+        atexit.register(self.graph.shutdown)
 
     def __enter__(self):
         return self
@@ -569,11 +597,17 @@ class Gremthon(object):
             e.setProperty(kw, kwargs[kw])
         return map_gremthon_type(e)
 
-    def add_vertex(self, index, **kwargs):
-        v = self.graph.addVertex(index)
+    def add_vertex(self, index=None, vertex_label=None, **kwargs):
+        if vertex_label:
+            v = self.graph.addVertexWithLabel(vertex_label)
+        else:
+            v = self.graph.addVertex(index)
         for kw in kwargs:
             v.setProperty(kw, kwargs[kw])
         return map_gremthon_type(v)
+
+    def commit(self):
+        self.graph.commit()
 
     @property
     def E(self):
@@ -597,7 +631,17 @@ class Gremthon(object):
 
     @property
     def management_system(self):
-        return GremthonManagementSystem(self.graph.getManagementSystem())
+        try:
+            return GremthonManagementSystem(self.graph.getManagementSystem())
+        except AttributeError:
+            return None
+
+
+    def input_graph(self, input_filename):
+        GraphSONReader.inputGraph(self.graph, FileInputStream(input_filename))
+
+    def output_graph(self, output_filename):
+        GraphSONWriter.outputGraph(self.graph, FileOutputStream(output_filename))
 
 
 if __name__ == "__main__":
