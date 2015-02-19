@@ -74,15 +74,11 @@ Edit conf/rexster-cassandra-es.xml (or the configuration file you're using) in y
 
         <script-engine>
             <name>gremlin-python</name>
-            <reset-threshold>500</reset-threshold>
-            <imports>...</imports>
-            <static-imports>...</static-imports>
         </script-engine>
 
 
-There should already be a script-engine defined for gremlin-groovy.   You can just copy that section and change the name
-to gremlin-python.  Replace "com.tinkerpop.gremlin.groovy." in the new script-engine section for
-gremlin-python to be "com.pokitdok.gremlin.python."  All of the other values can remain the same.
+There should already be a script-engine defined for gremlin-groovy.   You can just paste that snippet for gremlin-python
+below it.
 
 You'll also need to drop the files gremlin-python-{version}.jar and jython-standalone-{version}.jar
 into your titan lib directory.   gremlin-python has been tested with jython-standalone-2.7-b3.jar.

@@ -2,7 +2,7 @@ from gremthon import Gremthon
 import os
 
 #Java imports
-from com.tinkerpop.blueprints import Direction, Vertex, Edge
+from com.tinkerpop.blueprints import Direction, Vertex
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
 from com.thinkaurelius.titan.core import TitanFactory
 from com.thinkaurelius.titan.core import Order
@@ -150,6 +150,11 @@ def test_build_index():
     assert len(set(tg.V.has('age',30).has('name','hercules'))) == 1
     assert len(set(tg.V.has('age',30))) == 1
 
+    ms = tg.management_system
+    name = ms.property_key('name')
+    assert name is not None
+    age = ms.property_key('age')
+    assert age is not None
     # TODO: is there an easy way to verify with an 'external index backend' as part of these test cases?
     # ms.build_index('name-and-age', Vertex, keys=[name, age], backing_index='search')
     # ms.commit()
@@ -158,13 +163,12 @@ def test_build_index():
 
 
 def test_build_edge_index():
-    ms = tg.management_system
-    time = ms.make_property_key('time', data_type=Integer)
-    rating = ms.make_property_key('rating', data_type=Decimal)
-    battled = ms.make_edge_label('battled')
-    ms.build_edge_index(battled, 'battles-by-time', keys=[time])
-    ms.build_edge_index(battled, 'battles-by-rating-time', keys=[rating, time], direction=Direction.OUT, sort_order=Order.DESC)
-    ms.commit()
+    with tg.management_system as ms:
+        time = ms.make_property_key('time', data_type=Integer)
+        rating = ms.make_property_key('rating', data_type=Decimal)
+        battled = ms.make_edge_label('battled')
+        ms.build_edge_index(battled, 'battles-by-time', keys=[time])
+        ms.build_edge_index(battled, 'battles-by-rating-time', keys=[rating, time], direction=Direction.OUT, sort_order=Order.DESC)
 
 
 def test_output_graph():

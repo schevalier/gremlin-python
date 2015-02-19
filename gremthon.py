@@ -470,6 +470,12 @@ class GremthonManagementSystem(object):
     def __repr__(self):
         return self.management_system
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.commit()
+
     @property
     def open(self):
         return self.management_system.isOpen()

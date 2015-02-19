@@ -4,10 +4,7 @@ import com.tinkerpop.gremlin.Tokens;
 import org.python.jsr223.PyScriptEngineFactory;
 
 import javax.script.ScriptEngine;
-import javax.script.ScriptException;
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,7 +60,7 @@ public class GremlinPythonScriptEngineFactory extends PyScriptEngineFactory {
     public ScriptEngine getScriptEngine() {
         ScriptEngine engine = null;
         try {
-            engine = super.getScriptEngine();
+            engine = new GremlinPythonScriptEngine(super.getScriptEngine());
             //Load up gremthon for use within this Python script engine
             ClassLoader engineClassLoader = GremlinPythonScriptEngineFactory.class.getClassLoader();
             engine.eval(new BufferedReader(new InputStreamReader(engineClassLoader.getResourceAsStream("gremthon.py"))));
