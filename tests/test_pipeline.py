@@ -311,7 +311,7 @@ def test_group_count():
 
 def test_optional():
     assert [v.id for v in g.V.as_('x').out_e('knows').in_v().has('age', 30, 'gt').back('x')] == ['1']
-    assert [v.id for v in g.V.as_('x').out_e('knows').in_v().has('age', 30, 'gt').optional('x')] == ['1', '2', '3', '4', '5', '6']
+    assert set([v.id for v in g.V.as_('x').out_e('knows').in_v().has('age', 30, 'gt').optional('x')]) == set(['1', '2', '3', '4', '5', '6'])
 
 
 def test_side_effect():
