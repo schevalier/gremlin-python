@@ -1,4 +1,6 @@
+import atexit
 import glob
+from inspect import isfunction, getargspec, ismethod
 from itertools import islice
 import os
 import sys
@@ -12,17 +14,22 @@ def load_gremthon_jars():
 load_gremthon_jars()
 
 #gremlin related imports (Java)
-from com.tinkerpop.blueprints import Direction, Vertex
+from com.tinkerpop.blueprints import Direction, Predicate, Vertex, Edge
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
-from com.tinkerpop.blueprints.impls.tg import TinkerEdge
-from com.tinkerpop.blueprints.impls.tg import TinkerVertex
+from com.tinkerpop.blueprints.util.io.graphson import GraphSONWriter, GraphSONReader
+from com.tinkerpop.gremlin import Tokens
 from com.tinkerpop.gremlin.java import GremlinPipeline
+from com.tinkerpop.pipes.sideeffect import GroupByPipe
+from com.tinkerpop.pipes import PipeFunction
 from com.tinkerpop.pipes.util import PipesFunction
-from java.util import ArrayList, Collection, HashMap
-from java.lang import Float
+from com.tinkerpop.pipes.util import FluentUtility
+from com.tinkerpop.pipes.util.structures import AsMap
+from java.util import ArrayList, Collection, HashMap, Map
+from java.lang import Float, String
+from java.io import FileOutputStream, FileInputStream
 
 
-class GremthonEdge(object):
+class GremthonEdge(Edge):
 
     def __init__(self, edge):
         self.edge = edge
@@ -33,8 +40,11 @@ class GremthonEdge(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def get_blueprints_edge(self):
-        return self.edge
+    def __cmp__(self, other):
+        return cmp(self.edge)
+
+    def __hash__(self):
+        return hash(self.edge)
 
     @property
     def properties(self):
@@ -51,7 +61,24 @@ class GremthonEdge(object):
         return self.get_property(item)
 
     def __getattr__(self, item):
-        return self.get_property(item)
+        value = self.get_property(item)
+        if value is None:
+            # check to see if there's support for this attribute on the pipeline
+            if hasattr(GremthonPipeline, item):
+                pipeline = GremthonPipeline(GremlinPipeline(self.edge))
+                pipeline_attr = getattr(pipeline, item)
+                if ismethod(pipeline_attr):
+                    return pipeline_attr
+        return value
+
+    def keys(self):
+        return self.edge.getPropertyKeys()
+
+    def values(self):
+        values = []
+        for key in self.edge.getPropertyKeys():
+            values.append(self.edge.getProperty(key))
+        return values
 
     @property
     def label(self):
@@ -65,23 +92,33 @@ class GremthonEdge(object):
     def out_vertex(self):
         return self.edge.getVertex(Direction.OUT)
 
-    def __repr__(self):
+    def __str__(self):
         return '{0}'.format(self.edge)
 
+    def __repr__(self):
+        return self.__str__()
 
-class GremthonVertex(object):
+    @property
+    def id(self):
+        return self.get_property('id')
+
+
+class GremthonVertex(Vertex):
 
     def __init__(self, vertex):
         self.vertex = vertex
 
     def __eq__(self, other):
-        return self == other or self.vertex == other
+        return self is other or self.vertex is other or self == other or self.vertex == other
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def get_blueprints_vertex(self):
-        return self.vertex
+    def __cmp__(self, other):
+        return cmp(self.vertex)
+
+    def __hash__(self):
+        return hash(self.vertex)
 
     @property
     def properties(self):
@@ -98,10 +135,39 @@ class GremthonVertex(object):
         return self.get_property(item)
 
     def __getattr__(self, item):
-        return self.get_property(item)
+        value = self.get_property(item)
+        if value is None:
+            # check to see if there's support for this attribute on the pipeline
+            if hasattr(GremthonPipeline, item):
+                pipeline = GremthonPipeline(GremlinPipeline(self.vertex))
+                pipeline_attr = getattr(pipeline, item)
+                if ismethod(pipeline_attr):
+                    return pipeline_attr
+        return value
+
+    def __str__(self):
+        return '{0}'.format(self.vertex)
 
     def __repr__(self):
-        return '{0}'.format(self.vertex)
+        return self.__str__()
+
+    def keys(self):
+        return self.vertex.getPropertyKeys()
+
+    def values(self):
+        values = []
+        for key in self.vertex.getPropertyKeys():
+            values.append(self.vertex.getProperty(key))
+        return values
+
+    @property
+    def id(self):
+        return self.get_property('id')
+
+    @property
+    def out(self):
+        return GremthonPipeline(self.vertex.out)
+
 
     @property
     def edges(self):
@@ -110,9 +176,9 @@ class GremthonVertex(object):
 
 
 def map_gremthon_type(obj):
-    if isinstance(obj, TinkerEdge):
+    if isinstance(obj, Edge):
         return GremthonEdge(obj)
-    elif isinstance(obj, TinkerVertex):
+    elif isinstance(obj, Vertex):
         return GremthonVertex(obj)
     elif isinstance(obj, HashMap):
         return dict(obj)
@@ -124,17 +190,45 @@ def map_gremthon_type(obj):
 
 class GremthonPipesFunction(PipesFunction):
 
+    def __init__(self, function, as_map=None):
+        self.function = function
+        self.do_as_map = False
+        self.as_map = as_map
+        self.set_as_map(as_map)
+
+    def set_as_map(self, as_map):
+        self.as_map = as_map
+        self.do_as_map = as_map is not None and self.function is not None and len(getargspec(self.function).args) > 1
+
+    setAsMap = set_as_map
+
+    def getAsMap(self):
+        return self.as_map
+
+    def compute(self, argument):
+        if self.function:
+            if self.do_as_map:
+                return self.function(map_gremthon_type(argument), self.as_map)
+            else:
+                return self.function(map_gremthon_type(argument))
+
+        else:
+            return None
+
+
+class GremthonPredicate(Predicate):
     def __init__(self, function):
         self.function = function
 
-    def compute(self, argument):
-        return self.function(map_gremthon_type(argument))
+    def evaluate(self, first, second):
+        return self.function(first, second)
 
 
 class GremthonPipeline(object):
 
     def __init__(self, pipeline):
         self.pipeline = pipeline
+        self.as_map = AsMap(self.pipeline)
 
     def __iter__(self):
         for item in self.pipeline:
@@ -148,8 +242,11 @@ class GremthonPipeline(object):
         else:
             raise KeyError("Item must be non-negative number or slice (not {0})".format(item))
 
+    def __getattr__(self, attribute):
+        return [getattr(item, attribute, None) for item in self]
+
     def __repr__(self):
-        return '\n'.join([str(item) for item in self])
+        return '\n'.join([str(map_gremthon_type(item)) for item in self.pipeline.toList()])
 
     def add(self, pipe):
         self.pipeline.addPipe(pipe)
@@ -182,11 +279,25 @@ class GremthonPipeline(object):
         else:
             return self.__class__(self.pipeline.V())
 
-    def has(self, key=None, value=None):
+    def has(self, key=None, value=None, compare_token=None, predicate=None):
+        if predicate is not None:
+            if isfunction(predicate):
+                return self.__class__(self.pipeline.has(key, GremthonPredicate(predicate), value))
+            elif hasattr(predicate, 'evaluate'):
+                return self.__class__(self.pipeline.has(key, predicate, value))
+            else:
+                raise ValueError('Incorrect value for predicate.  Must be function or implement Predicate interface')
+
+        if compare_token is not None:
+            return self.__class__(self.pipeline.has(key, getattr(Tokens.T, compare_token, None), value))
+
         if key is not None and value is None:
             return self.__class__(self.pipeline.has(key))
         else:
             return self.__class__(self.pipeline.has(key, value))
+
+    def has_not(self, key):
+        return self.__class__(self.pipeline.hasNot(key))
 
     def interval(self, key, start, end):
         if isinstance(start, float):
@@ -231,7 +342,10 @@ class GremthonPipeline(object):
         return self.__class__(self.pipeline.outE(args))
 
     def out(self, *args):
-        return self.__class__(self.pipeline.out(args))
+        if len(args) > 1 and isinstance(args[0], int):
+            return self.__class__(self.pipeline.out(args[0], args[1:]))
+        else:
+            return self.__class__(self.pipeline.out(args))
 
     def out_v(self):
         return self.__class__(self.pipeline.outV())
@@ -284,7 +398,7 @@ class GremthonPipeline(object):
             return self.__class__(except_method(args))
 
     def filter(self, filter_func):
-        return self.__class__(self.pipeline.filter(GremthonPipesFunction(filter_func)))
+        return self.__class__(self.pipeline.filter(GremthonPipesFunction(filter_func, as_map=self.as_map)))
 
     def or_(self, *args):
         or_method = getattr(self.pipeline, 'or')
@@ -297,21 +411,79 @@ class GremthonPipeline(object):
         return self.__class__(self.pipeline.range(low, high))
 
     def retain(self, *args):
-        return self.__class__(self.pipeline.retain(args))
+        if len(args) == 1 and isinstance(args[0], (Collection, list, tuple)):
+            return self.__class__(self.pipeline.retain(args[0]))
+        else:
+            return self.__class__(self.pipeline.retain(args))
 
     def simple_path(self):
         return self.__class__(self.pipeline.simplePath())
 
-    def aggregate(self):
-        #TODO: handle other aggregate options
-        return self.__class__(self.pipeline.aggregate())
+    def aggregate(self, aggregate=None, aggregate_func=None):
+        if aggregate is None and aggregate_func is None:
+            return self.__class__(self.pipeline.aggregate())
+        elif aggregate and isinstance(aggregate, (Collection, list, tuple)) and aggregate_func is None:
+            return self.__class__(self.pipeline.aggregate(aggregate))
+        elif aggregate_func and aggregate is None:
+            return self.__class__(self.pipeline.aggregate(GremthonPipesFunction(aggregate_func, as_map=self.as_map)))
+        elif aggregate and not isinstance(aggregate, (Collection, list, tuple)) and aggregate_func is None:
+            if isfunction(aggregate):
+                return self.__class__(self.pipeline.aggregate(GremthonPipesFunction(aggregate, as_map=self.as_map)))
+            else:
+                return self.__class__(self.pipeline.aggregate(aggregate))
+        else:
+            return self.__class__(self.pipeline.aggregate(aggregate, GremthonPipesFunction(aggregate_func, as_map=self.as_map) if isfunction(aggregate_func) else aggregate_func))
 
     def optional(self, named_step):
         return self.__class__(self.pipeline.optional(named_step))
 
-    #TODO: groupBy ?
+    def group_by(self, *args):
+        if len(args) == 2:
+            key_func = GremthonPipesFunction(args[0], as_map=self.as_map) if isfunction(args[0]) else args[0]
+            value_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+            return self.__class__(self.pipeline.add(GroupByPipe(FluentUtility.prepareFunction(self.as_map, key_func), FluentUtility.prepareFunction(self.as_map, value_func))))
+        elif len(args) == 3:
+            if isinstance(args[0], Map):
+                map_obj = args[0]
+                key_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+                value_func = GremthonPipesFunction(args[2], as_map=self.as_map) if isfunction(args[2]) else args[2]
+                return self.__class__(self.pipeline.groupBy(map_obj, key_func, value_func))
+            else:
+                key_func = GremthonPipesFunction(args[0], as_map=self.as_map) if isfunction(args[0]) else args[0]
+                value_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+                reduce_func = GremthonPipesFunction(args[2], as_map=self.as_map) if isfunction(args[2]) else args[2]
+                return self.__class__(self.pipeline.groupBy(key_func, value_func, reduce_func))
+        elif len(args) == 4:
+            map_obj = args[0]
+            key_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+            value_func = GremthonPipesFunction(args[2], as_map=self.as_map) if isfunction(args[2]) else args[2]
+            reduce_func = GremthonPipesFunction(args[3], as_map=self.as_map) if isfunction(args[3]) else args[3]
+            return self.__class__(self.pipeline.groupBy(map_obj, key_func, value_func, reduce_func))
 
-    #TODO: groupCount ?
+    def group_count(self, *args):
+        if len(args) == 0:
+            return self.__class__(self.pipeline.groupCount())
+        elif len(args) == 1:
+            if isfunction(args[0]) or isinstance(args[0], PipeFunction):
+                key_func = GremthonPipesFunction(args[0], as_map=self.as_map) if isfunction(args[0]) else args[0]
+                return self.__class__(self.pipeline.groupCount(key_func))
+            else:
+                map = args[0]
+                return self.__class__(self.pipeline.groupCount(map))
+        elif len(args) == 2:
+            if isinstance(args[0], (Map, dict)):
+                map = args[0]
+                key_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+                return self.__class__(self.pipeline.groupCount(map, key_func))
+            else:
+                key_func = GremthonPipesFunction(args[0], as_map=self.as_map) if isfunction(args[0]) else args[0]
+                value_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+                return self.__class__(self.pipeline.groupCount(key_func, value_func))
+        elif len(args) == 3:
+            map = args[0]
+            key_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+            value_func = GremthonPipesFunction(args[2], as_map=self.as_map) if isfunction(args[2]) else args[2]
+            return self.__class__(self.pipeline.groupCount(map, key_func, value_func))
 
     def link_out(self, label, named_step_other_vertex):
         return self.__class__(self.pipeline.linkOut(label, named_step_other_vertex))
@@ -326,11 +498,24 @@ class GremthonPipeline(object):
             return self.__class__(self.pipeline.linkBoth(label, named_step_other_vertex))
 
     def side_effect(self, side_effect_func):
-        return self.__class__(self.pipeline.sideEffect(side_effect_func))
+        return self.__class__(self.pipeline.sideEffect(GremthonPipesFunction(side_effect_func, as_map=self.as_map)))
 
-    def store(self, side_effect_func):
-        #TODO: handle other store variations
-        return self.__class__(self.pipeline.store())
+    def store(self, *args):
+        if len(args) == 0:
+            return self.__class__(self.pipeline.store())
+        elif len(args) == 1:
+            if isfunction(args[0]) or isinstance(args[0], PipeFunction):
+                storage_func = GremthonPipesFunction(args[0], as_map=self.as_map) if isfunction(args[0]) else args[0]
+                return self.__class__(self.pipeline.store())
+            else:
+                storage = args[0]
+                return self.__class__(self.pipeline.store(storage))
+        elif len(args) == 2:
+            storage = args[0]
+            storage_func = GremthonPipesFunction(args[1], as_map=self.as_map) if isfunction(args[1]) else args[1]
+            return self.__class__(self.pipeline.store(storage, storage_func))
+        else:
+            return None
 
     #TODO: table ?
 
@@ -340,17 +525,13 @@ class GremthonPipeline(object):
         if gather_function is None:
             return self.__class__(self.pipeline.gather())
         else:
-            return self.__class__(self.pipeline.gather(GremthonPipesFunction(gather_function)))
+            return self.__class__(self.pipeline.gather(GremthonPipesFunction(gather_function, as_map=self.as_map)))
 
     def memoize(self, named_step, map=None):
         if map is None:
             return self.__class__(self.pipeline.memoize(named_step))
         else:
             return self.__class__(self.pipeline.memoize(named_step, map))
-
-    @property
-    def name(self):
-        return '\n'.join([item.name for item in self])
 
     def order(self):
         #TODO: handle other variations
@@ -360,7 +541,7 @@ class GremthonPipeline(object):
         path_args = []
         for arg in args:
             if hasattr(arg, '__call__'):
-                path_args.append(GremthonPipesFunction(arg))
+                path_args.append(GremthonPipesFunction(arg, as_map=self.as_map))
             else:
                 path_args.append(arg)
         return self.__class__(self.pipeline.path(tuple(path_args)))
@@ -372,7 +553,7 @@ class GremthonPipeline(object):
         select_args = []
         for arg in args:
             if hasattr(arg, '__call__'):
-                select_args.append(GremthonPipesFunction(arg))
+                select_args.append(GremthonPipesFunction(arg, as_map=self.as_map))
             else:
                 select_args.append(arg)
         if len(select_args) >= 1 and isinstance(args[0], (Collection, list, tuple)):
@@ -404,8 +585,11 @@ class GremthonPipeline(object):
     def iterate(self):
         self.pipeline.iterate()
 
-    def next(self, number):
-        return self.pipeline.next(number)
+    def next(self, number=None):
+        if number:
+            return map_gremthon_type(self.pipeline.next(number))
+        else:
+            return map_gremthon_type(self.pipeline.next())
 
     def to_list(self):
         return self.pipeline.toList()
@@ -430,10 +614,135 @@ class GremthonPipeline(object):
 
 
 
+
+class GremthonManagementSystem(object):
+
+    def __init__(self, management_system, default_cardinality=None):
+        self.management_system = management_system
+        self.default_cardinality = default_cardinality
+
+    def __getitem__(self, path):
+        return self.management_system.get(path)
+
+    def __setitem__(self, key, value):
+        return self.management_system.set(key, value)
+
+    def __repr__(self):
+        return self.management_system
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.commit()
+
+    @property
+    def open(self):
+        return self.management_system.isOpen()
+
+    def close(self):
+        self.management_system.close()
+
+    def commit(self):
+        self.management_system.commit()
+
+    def rollback(self):
+        self.management_system.rollback()
+
+    def build_edge_index(self, label, name, keys=None, direction=Direction.BOTH, sort_order=None):
+        if sort_order is not None:
+            eib = self.management_system.buildEdgeIndex(label, name, direction, sort_order, keys)
+        else:
+            eib = self.management_system.buildEdgeIndex(label, name, direction, keys)
+        return eib
+
+    def graph_index(self, name):
+        return self.management_system.getGraphIndex(name)
+
+    def build_index(self, name, element_type, keys=None, backing_index=None, unique=False):
+        if keys is None:
+            keys = []
+        index = self.management_system.buildIndex(name, element_type)
+        for key in keys:
+            index.addKey(key)
+        if unique:
+            index.unique()
+        if backing_index:
+            index.buildMixedIndex(backing_index)
+        else:
+            index.buildCompositeIndex()
+        return index
+
+    def contains_relation_type(self, name):
+        return self.management_system.containsRelationType(name)
+
+    def relation_type(self, name):
+        return self.management_system.getRelationType(name)
+
+    def contains_property_key(self, name):
+        return self.management_system.containsPropertyKey(name)
+
+    def property_key(self, name):
+        return self.management_system.getPropertyKey(name)
+
+    def contains_edge_label(self, name):
+        return self.management_system.containsEdgeLabel(name)
+
+    def edge_label(self, name):
+        return self.management_system.getEdgeLabel(name)
+
+    def make_property_key(self, name, data_type=None, cardinality=None, auto_make=True):
+        pkm = self.management_system.makePropertyKey(name)
+        if data_type:
+            pkm.dataType(data_type)
+        else:
+            pkm.dataType(String)
+
+        if cardinality:
+            pkm.cardinality(cardinality)
+        elif self.default_cardinality:
+            pkm.cardinality(self.default_cardinality)
+
+        if auto_make:
+            return pkm.make()
+        else:
+            return pkm
+
+
+    def make_edge_label(self, name, multiplicity=None, auto_make=True):
+
+        elm = self.management_system.makeEdgeLabel(name)
+
+        if multiplicity:
+            elm.multiplicity(multiplicity)
+
+        if auto_make:
+            return elm.make()
+        else:
+            return elm
+
+    def contains_vertex_label(self, name):
+        return self.management_system.containsVertexLabel(name)
+
+    def vertex_label(self, name):
+        return self.management_system.getVertexLabel(name)
+
+    def make_vertex_label(self, name, auto_make=True):
+        vlm = self.management_system.makeVertexLabel(name)
+        if auto_make:
+            return vlm.make()
+        else:
+            return vlm
+
+    def vertex_labels(self):
+        return self.management_system.getVertexLabels()
+
+
 class Gremthon(object):
 
     def __init__(self, graph):
         self.graph = graph
+        atexit.register(self.graph.shutdown)
 
     def __enter__(self):
         return self
@@ -446,19 +755,37 @@ class Gremthon(object):
 
     def add_edge(self, index, out_v, in_v, label, **kwargs):
         if isinstance(out_v, GremthonVertex):
-            out_v = out_v.get_blueprints_vertex()
+            out_v = out_v.vertex
         if isinstance(in_v, GremthonVertex):
-            in_v = in_v.get_blueprints_vertex()
+            in_v = in_v.vertex
         e = self.graph.addEdge(index, out_v, in_v, label)
         for kw in kwargs:
             e.setProperty(kw, kwargs[kw])
         return map_gremthon_type(e)
 
-    def add_vertex(self, index, **kwargs):
-        v = self.graph.addVertex(index)
+    def remove_edge(self, e):
+        if isinstance(e, GremthonEdge):
+            self.graph.removeEdge(e.edge)
+        else:
+            self.graph.removeEdge(e)
+
+    def add_vertex(self, index=None, vertex_label=None, **kwargs):
+        if vertex_label:
+            v = self.graph.addVertexWithLabel(vertex_label)
+        else:
+            v = self.graph.addVertex(index)
         for kw in kwargs:
             v.setProperty(kw, kwargs[kw])
         return map_gremthon_type(v)
+
+    def remove_vertex(self, v):
+        if isinstance(v, GremthonVertex):
+            self.graph.removeVertex(v.vertex)
+        else:
+            self.graph.removeVertex(v)
+
+    def commit(self):
+        self.graph.commit()
 
     @property
     def E(self):
@@ -479,6 +806,28 @@ class Gremthon(object):
 
     def v(self, index):
         return GremthonPipeline(GremlinPipeline(self.graph.getVertex(index)))
+
+    @property
+    def management_system(self):
+        try:
+            return GremthonManagementSystem(self.graph.getManagementSystem())
+        except AttributeError:
+            return None
+
+    def create_index(self, name, index_class, *args):
+        return self.graph.createIndex(name, index_class, args)
+
+    def idx(self, name):
+        for index in self.graph.getIndices():
+            if index.getIndexName() == name:
+                return index
+        return None
+
+    def input_graph(self, input_filename):
+        GraphSONReader.inputGraph(self.graph, FileInputStream(input_filename))
+
+    def output_graph(self, output_filename):
+        GraphSONWriter.outputGraph(self.graph, FileOutputStream(output_filename))
 
 
 if __name__ == "__main__":

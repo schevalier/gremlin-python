@@ -1,12 +1,18 @@
 # Test scenarios based on http://gremlindocs.com/
 
 from gremthon import Gremthon
+from itertools import groupby
+import sys
 
 #Java imports
 from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
+from java.util import ArrayList
+from java.lang import Float
 
 graph = TinkerGraphFactory.createTinkerGraph()
 g = Gremthon(graph)
+
+youngest = sys.maxsize
 
 
 def test_both():
@@ -43,7 +49,7 @@ def test_get_adjacent_vertices():
 
 
 def test_properties():
-    assert g.v(3).name == 'lop'
+    assert g.v(3).name == ['lop']
     assert list(g.v(3))[0].name == 'lop'
     assert list(g.v(3))[0]['name'] == 'lop'
     assert list(g.v(3))[0].get_property('name') == 'lop'
@@ -53,6 +59,20 @@ def test_labels():
     assert list(g.v(6).out_e())[0].label == 'created'
     assert [e.id for e in g.v(1).out_e().filter(lambda it: it.label == 'created')] == ['9']
     assert [e.id for e in g.v(1).out_e().has('label','created')] == ['9']
+
+
+def test_has():
+    assert g.V.has('name', 'mark').name == []
+    assert g.V.has('name', 'marko').name == ['marko']
+    assert g.V.has('name', 'mark', predicate=lambda a,b: b in a).name == ['marko']
+    assert set([v.id for v in g.V.has('age')]) == {'1', '2', '4', '6'}
+    assert set(g.V.has('age', 30, compare_token='gt').age) == {32, 35}
+    assert set(g.V.has('age', 30, compare_token='lt').age) == {29, 27}
+    assert set(g.V.has('age', 29, compare_token='gte').age) == {29, 32, 35}
+
+
+def test_has_not():
+    assert set(v.id for v in g.V.has_not('lang')) == {'1', '2', '4', '6'}
 
 
 def test_link_both_in_out():
@@ -153,7 +173,7 @@ def test_shuffle():
 def test_vertex_iteration():
     assert set([v.id for v in g.V]) == {'3', '2', '1', '6', '5', '4'}
     assert [v.id for v in g.vertices("name", "marko")] == ['1']
-    assert g.vertices("name", "marko").name == 'marko'
+    assert g.vertices("name", "marko").name == ['marko']
 
 
 def test_index_filter():
@@ -186,59 +206,130 @@ def test_random():
         assert obj in all_objects
 
 
-#TODO: keep testing!
+def test_retain():
+    x = [g.v(1).next().vertex, g.v(2).next().vertex, g.v(3).next().vertex]
+    assert len(x) == 3
+    assert set([v.id for v in g.V.retain(x)]) == {'1', '2', '3'}
+    assert len(x) == 3
 
-# def test_retain():
-#     pass
+    x = ArrayList()
+    items = [v.id for v in list(g.v(1).out().aggregate(x).out().retain(x))]
+    assert  items == ['3']
+    items = [v.id for v in list(g.V.as_('x').both().both().both().retain('x'))]
+    assert len(items) == 6
+    expected_ids = ['1', '3', '4']
+    items.sort()
+    assert [len(list(group)) for key, group in groupby(items)] == [2, 2, 2]
 
 
 def test_simple_path():
     assert [v.id for v in g.v(1).out().in_().simple_path()] == ['4', '6']
 
 
-# def test_aggregate():
-#     pass
+def test_aggregate():
+    x = []
+    list(g.v(1).out().aggregate(x))
+    assert len(x) == 3
+    assert set(v.id for v in x) == {'3', '2', '4'}
+
+    x = []
+    item = g.v(1).out().aggregate(x).next()
+    assert item is not None
+    assert item.id in {'3', '2', '4'}
+    assert len(x) == 3
+    assert set(v.id for v in x) == {'3', '2', '4'}
+
+    items = g.v(1).out().aggregate(x).next(2)
+    assert items is not None
+    assert len(items) == 2
+    assert set([v.id for v in items]) < {'3', '2', '4'}
+    assert set(v.id for v in x) == {'3', '2', '4'}
+
+    ids = []
+    list(g.v(1).out().aggregate(ids, lambda it: it.id))
+    assert set(ids) == {'3', '2', '4'}
+
+    x = []
+    assert set(v.id for v in g.v(1).out().aggregate(x).out()) == {'3', '5'}
+    assert set([v.id for v in x]) == {'3', '2', '4'}
 
 
-# def test_group_by():
-#     pass
-#
-#
-# def test_group_count():
-#     pass
-#
-#
-# def test_optional():
-#     pass
-#
-#
-# def test_side_effect():
-#     pass
-#
-#
-# def test_store():
-#     pass
-#
-# def test_table():
-#     pass
-#
-#
-# def test_tree():
-#     pass
-#
-#
-# def test_copy_split():
-#     pass
-#
-#
-# def test_exhaust_merge():
-#     pass
-#
-#
-# def test_fair_merge():
-#     pass
-#
-#
+def test_group_by():
+    x = g.V.group_by(lambda it: it.vertex, lambda it: set(it.out())).cap().next()
+    expected = {
+        g.v(1).next().vertex: [{g.v(3).next().vertex, g.v(2).next().vertex, g.v(4).next().vertex}],
+        g.v(2).next().vertex: [set([])],
+        g.v(3).next().vertex: [set([])],
+        g.v(4).next().vertex: [{g.v(3).next().vertex, g.v(5).next().vertex}],
+        g.v(5).next().vertex: [set([])],
+        g.v(6).next().vertex: [{g.v(3).next().vertex}]
+    }
+    assert str(x) == str(expected)
+
+    m = {}
+    g.V.group_by(m, lambda it: it.vertex, lambda it: set(it.out())).iterate()
+    assert str(m) == str(expected)
+
+    x = g.V.group_by(lambda it: it.vertex, lambda it: it.out(), lambda it: it[0].count()).cap().next()
+    expected_counts = {
+        g.v(1).next().vertex: 3,
+        g.v(2).next().vertex: 0,
+        g.v(3).next().vertex: 0,
+        g.v(4).next().vertex: 2,
+        g.v(5).next().vertex: 0,
+        g.v(6).next().vertex: 1
+    }
+    assert str(x) == str(expected_counts)
+
+    x = g.V.out().group_by(lambda it: it.name, lambda it: it.in_(), lambda it: list(v.name for v in it[0] if v.age > 30)).cap().next()
+    expected_names = {u'vadas': [], u'josh': [], u'lop': [u'josh', u'peter'], u'ripple': [u'josh']}
+    assert x == expected_names
+
+
+def test_group_count():
+    m = {}
+    items = [v.id for v in g.V.out().group_count(m)]
+    assert len(items) == 6
+    assert set(items) == {'3', '2', '4', '5'}
+    assert m == {
+        g.v(2).next().vertex: 1L,
+        g.v(3).next().vertex: 3L,
+        g.v(4).next().vertex: 1L,
+        g.v(5).next().vertex: 1L
+    }
+
+    m = {}
+    items = [v.id for v in g.v(1).out().group_count(m, lambda it: it, lambda it: it.b+1.0).out().group_count(m, lambda it: it, lambda it: it.b+0.5)]
+    assert set(items) == {'3', '5'}
+    assert m == {
+        g.v(2).next().vertex: 1.0,
+        g.v(3).next().vertex: 1.5,
+        g.v(4).next().vertex: 1.0,
+        g.v(5).next().vertex: 0.5
+    }
+
+
+def test_optional():
+    assert [v.id for v in g.V.as_('x').out_e('knows').in_v().has('age', 30, 'gt').back('x')] == ['1']
+    assert set([v.id for v in g.V.as_('x').out_e('knows').in_v().has('age', 30, 'gt').optional('x')]) == set(['1', '2', '3', '4', '5', '6'])
+
+
+def test_side_effect():
+    global youngest
+    def find_youngest(it):
+        global youngest
+        youngest = it.age if youngest > it.age else youngest
+
+    assert youngest == sys.maxsize
+    assert set(g.V.has('age').side_effect(find_youngest).age) == {29, 27, 32, 35}
+    assert youngest == 27
+
+
+def test_store():
+    x = []
+    assert g.v(1).out().store(x).next().id in {'3', '2', '4'}
+    assert x[0].id in {'3', '2', '4'}
+
 
 def test_if_then_else():
     assert set(g.V.if_then_else(lambda x: x.id == '1', lambda x: x.getProperty("age"),
@@ -252,33 +343,25 @@ def test_loop():
     # assert set([v.id for v in g.v(1).out().as_("x").loop("x", lambda x: x.loops < 3,
     #                                                      lambda x: x.object.id == '3')]) == {'3'}
 
-#
-#
-# def test_keys():
-#     pass
-#
-#
-# def test_remove():
-#     pass
-#
-#
-# def test_value():
-#     pass
-#
-#
-def test_add_edge():
-    assert g.add_edge(None, g.add_vertex(None, name="tim"), g.add_vertex(None, name="lisa"), "knows")
-#
-#
-def test_add_vertex():
-    assert g.add_vertex(None, name="tim")
-#
-#
-# def test_index():
-#     pass
-#
-#
-# def test_fill():
-#     pass
-#
-#
+
+def test_keys():
+    assert set(g.v(1).next().keys()) == {'name', 'age'}
+
+
+def test_values():
+    assert set(g.v(1).next().values()) == {'marko', 29}
+
+
+def test_remove():
+    assert set(g.E.weight) == {0.4000000059604645, 0.5, 1.0, 0.20000000298023224}
+    g.E.has("weight",Float(0.5), 'lt').remove()
+    assert set(g.E.weight) == {0.5, 1.0}
+    assert len(g.E.weight) == 3
+
+
+def test_fill():
+    m = []
+    assert set([v.id for v in g.v(1).out().fill(m)]) == {'2', '4'}
+    assert set([v.id for v in m]) == {'2', '4'}
+
+

@@ -39,7 +39,7 @@ the GREMTHON_JAR_DIRS environment variable:
 
 .. code-block:: bash
 
-    $ export GREMTHON_JAR_DIRS=/Users/corbinbs/Downloads/titan-0.5.3-hadoop2/lib/
+    $ export GREMTHON_JAR_DIRS=/titan-0.5.3-hadoop2/lib/
 
 Run a local, interactive gremthon session:
 
@@ -74,25 +74,23 @@ Edit conf/rexster-cassandra-es.xml (or the configuration file you're using) in y
 
         <script-engine>
             <name>gremlin-python</name>
-            <reset-threshold>500</reset-threshold>
-            <imports>...</imports>
-            <static-imports>...</static-imports>
         </script-engine>
 
 
-There should already be a script-engine defined for gremlin-groovy.   You can just copy that section and change the name
-to gremlin-python.  Replace "com.tinkerpop.gremlin.groovy." in the new script-engine section for
-gremlin-python to be "com.pokitdok.gremlin.python."  All of the other values can remain the same.
+There should already be a script-engine defined for gremlin-groovy.   You can just paste that snippet for gremlin-python
+below it.
 
 You'll also need to drop the files gremlin-python-{version}.jar and jython-standalone-{version}.jar
 into your titan lib directory.   gremlin-python has been tested with jython-standalone-2.7-b3.jar.
+You can find a gremlin-python jar file for each release at https://github.com/pokitdok/gremlin-python/releases
+The jython standalone jar can be found at http://search.maven.org/remotecontent?filepath=org/python/jython-standalone/2.7-b3/jython-standalone-2.7-b3.jar
 
 After restarting titan + rexster, you should see python available in your rexster console:
 
 
 .. code-block:: bash
 
-    ~/titan-0.5.3-hadoop2 $ ./bin/rexster-console.sh
+    $ ./bin/rexster-console.sh -l python
             (l_(l
     (_______( 0 0
     (        (-Y-) <woof>
@@ -101,21 +99,41 @@ After restarting titan + rexster, you should see python available in your rexste
     opening session [127.0.0.1:8184]
     ?h for help
 
-    rexster[groovy]> ?python
-    rexster[python]> from com.tinkerpop.blueprints.impls.tg import TinkerGraphFactory
+    rexster[python]> g = rexster.getGraph("graph")
     ==>null
-    rexster[python]> from gremthon import Gremthon
-    ==>null
-    rexster[python]> graph = TinkerGraphFactory.createTinkerGraph()
-    ==>null
-    rexster[python]> g = Gremthon(graph)
-    ==>null
-    rexster[python]> list(g.v(3))[0].name
-    ==>lop
-    rexster[python]> [v.id for v in g.v(4).in_()]
-    ==>1
-    rexster[python]> g.v(1).out('knows').has('name','josh')
-    ==>v[4]
-    rexster[python]> g = Gremthon(rexster.getGraph("graph"))
-    ==>null
-    rexster[python]> g.V
+    rexster[python]> [v.name for v in g.V]
+    ==>hercules
+    rexster[python]> g.V.has('name','hercules')
+    ==>v[256]
+    rexster[python]> g.V.has('name','hercules').name
+    ==>hercules
+    rexster[python]> g.V.has('name','hercules').age
+    ==>30
+
+
+Troubleshooting
+---------------
+
+If you have problems connecting to a remote titan graph (that's using elasticsearch) when you're working
+within an interactive jython session, try placing the names.txt file from elasticsearch somewhere on
+the path or in your current working directory.  It seems that some class loader differences exist
+between an interactive jython session and working within rexster.  names.txt can be found properly
+within rexster but not when working with jython.  You can grab a copy of names.txt here:
+https://github.com/elasticsearch/elasticsearch/blob/master/src/main/resources/config/names.txt
+or from within the elasticsearch jar file.
+
+
+Supported JVM Versions
+----------------------
+
+This library aims to support and is tested against these JVM versions:
+
+* openjdk7
+* oraclejdk7
+* oraclejdk8
+
+
+License
+-------
+
+Copyright (c) 2015 PokitDok, Inc.  The MIT License (MIT) (See LICENSE_ for details.)
