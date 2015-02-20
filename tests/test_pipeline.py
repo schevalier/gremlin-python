@@ -235,7 +235,7 @@ def test_aggregate():
     x = []
     item = g.v(1).out().aggregate(x).next()
     assert item is not None
-    assert item.id == '3'
+    assert item.id in {'3', '2', '4'}
     assert len(x) == 3
     assert set(v.id for v in x) == {'3', '2', '4'}
 
@@ -330,27 +330,6 @@ def test_store():
     assert g.v(1).out().store(x).next().id == '3'
     assert x[0].id == '3'
 
-
-# def test_table():
-#     pass
-#
-#
-# def test_tree():
-#     pass
-#
-#
-# def test_copy_split():
-#     pass
-#
-#
-# def test_exhaust_merge():
-#     pass
-#
-#
-# def test_fair_merge():
-#     pass
-#
-#
 
 def test_if_then_else():
     assert set(g.V.if_then_else(lambda x: x.id == '1', lambda x: x.getProperty("age"),
