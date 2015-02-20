@@ -327,8 +327,8 @@ def test_side_effect():
 
 def test_store():
     x = []
-    assert g.v(1).out().store(x).next().id == '3'
-    assert x[0].id == '3'
+    assert g.v(1).out().store(x).next().id in {'3', '2', '4'}
+    assert x[0].id in {'3', '2', '4'}
 
 
 def test_if_then_else():
