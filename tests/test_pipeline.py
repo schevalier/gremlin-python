@@ -242,7 +242,7 @@ def test_aggregate():
     items = g.v(1).out().aggregate(x).next(2)
     assert items is not None
     assert len(items) == 2
-    assert set([v.id for v in items]) == {'3', '2'}
+    assert set([v.id for v in items]) < {'3', '2', '4'}
     assert set(v.id for v in x) == {'3', '2', '4'}
 
     ids = []
