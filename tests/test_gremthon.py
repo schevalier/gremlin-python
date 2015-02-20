@@ -42,6 +42,33 @@ def test_gremthon_titan_repr():
     assert str(tg) == 'titangraph[inmemory:[127.0.0.1]]'
 
 
+def test_add_edge():
+    assert g.add_edge(None, g.add_vertex(None, name="tim"), g.add_vertex(None, name="lisa"), "knows")
+
+
+def test_remove_edge():
+    edge = g.add_edge(None, g.add_vertex(None, name="dang"), g.add_vertex(None, name="son"), "knows")
+    assert g.remove_edge(edge) is None
+
+
+def test_add_vertex():
+    assert g.add_vertex(None, name="tim")
+
+
+def test_remove_vertex():
+    vertex = g.add_vertex(None, name="billy bob")
+    assert g.remove_vertex(vertex) is None
+
+
+def test_index_not_found():
+    assert g.idx('not-yet-created-index') is None
+
+
+def test_index():
+    g.create_index("my-index", Vertex)
+    assert g.idx("my-index") is not None
+
+
 def test_no_management_system():
     assert g.management_system is None
 

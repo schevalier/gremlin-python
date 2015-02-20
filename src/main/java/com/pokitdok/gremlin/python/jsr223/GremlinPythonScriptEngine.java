@@ -38,13 +38,17 @@ public class GremlinPythonScriptEngine implements ScriptEngine, Compilable, Invo
     @Override
     public Object eval(String script, Bindings n) throws ScriptException {
         inject_gremthon(n);
-        return this.python.eval(script, n);
+        Object result = this.python.eval(script, n);
+        unwrap_gremthon(n);
+        return result;
     }
 
     @Override
     public Object eval(Reader reader, Bindings n) throws ScriptException {
         inject_gremthon(n);
-        return this.python.eval(reader, n);
+        Object result = this.python.eval(reader, n);
+        unwrap_gremthon(n);
+        return result;
     }
 
     @Override
@@ -107,6 +111,37 @@ public class GremlinPythonScriptEngine implements ScriptEngine, Compilable, Invo
             try {
                 //wrap `e` with GremthonEdge to pick up nice python language support
                 this.python.eval("e = GremthonEdge(e)", bindings);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    private void unwrap_gremthon(Bindings bindings) {
+
+        if (bindings.containsKey("g") && !(bindings.get("g") instanceof Graph)) {
+            try {
+                //unwrap `g` with Gremthon to ensure a smooth transition between script engines
+                this.python.eval("g = g.graph", bindings);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (bindings.containsKey("v") && !(bindings.get("v") instanceof Vertex)) {
+            try {
+                //unwrap `v` with GremthonVertex to ensure a smooth transition between script engines
+                this.python.eval("v = v.vertex", bindings);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (bindings.containsKey("e") && !(bindings.get("e") instanceof Edge)) {
+            try {
+                //unwrap `e` with GremthonEdge to ensure a smooth transition between script engines
+                this.python.eval("e = e.edge", bindings);
             } catch (ScriptException e) {
                 e.printStackTrace();
             }
