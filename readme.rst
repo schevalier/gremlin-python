@@ -62,7 +62,7 @@ Compile, test and package the gremlin-python jar:
 
     $ mvn clean package
 
-rexter
+rexster
 ------
 
 To utilize Python syntax from within a rexster console, you'll need to drop in a couple of jar files
