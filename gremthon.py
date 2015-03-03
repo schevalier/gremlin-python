@@ -28,10 +28,6 @@ from java.util import ArrayList, Collection, HashMap, Map
 from java.lang import Float, String
 from java.io import FileOutputStream, FileInputStream
 
-#management system related imports
-from com.tinkerpop.blueprints.Element.RelationType import EdgeLabel
-from com.tinkerpop.blueprints.Element.RelationType import PropertyKey
-
 
 class GremthonEdge(Edge):
 
@@ -663,6 +659,9 @@ class GremthonManagementSystem(object):
     def graph_index(self, name):
         return self.management_system.getGraphIndex(name)
 
+    def contains_graph_index(self, name):
+        return self.management_system.containsGraphIndex(name)
+
     def build_index(self, name, element_type, keys=None, backing_index=None, unique=False):
         if keys is None:
             keys = []
@@ -712,7 +711,6 @@ class GremthonManagementSystem(object):
         else:
             return pkm
 
-
     def make_edge_label(self, name, multiplicity=None, auto_make=True):
 
         elm = self.management_system.makeEdgeLabel(name)
@@ -741,11 +739,6 @@ class GremthonManagementSystem(object):
     def vertex_labels(self):
         return self.management_system.getVertexLabels()
 
-    def edge_labels(self):
-        return self.management_system.getRelationTypes(EdgeLabel)
-
-    def property_keys(self):
-        return self.management_system.getRelationTypes(PropertyKey)
 
 class Gremthon(object):
 
