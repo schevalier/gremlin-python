@@ -659,6 +659,9 @@ class GremthonManagementSystem(object):
     def graph_index(self, name):
         return self.management_system.getGraphIndex(name)
 
+    def contains_graph_index(self, name):
+        return self.management_system.containsGraphIndex(name)
+
     def build_index(self, name, element_type, keys=None, backing_index=None, unique=False):
         if keys is None:
             keys = []
@@ -707,7 +710,6 @@ class GremthonManagementSystem(object):
             return pkm.make()
         else:
             return pkm
-
 
     def make_edge_label(self, name, multiplicity=None, auto_make=True):
 

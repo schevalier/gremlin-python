@@ -137,6 +137,7 @@ def test_make_property_key():
     assert pk.getDataType() == String
 
     ms.commit()
+
     assert tg.management_system.contains_relation_type('property1') is True
     assert tg.management_system.relation_type('property1') == pk
 
@@ -168,6 +169,9 @@ def test_build_index():
     ms.build_index('by-name-and-age', Vertex, keys=[name, age])
     ms.commit()
 
+    assert tg.management_system.contains_graph_index("by-name") is True
+    assert tg.management_system.contains_graph_index("by-name-and-age") is True
+
     v = tg.add_vertex(name='hercules', age=30)
     tg.commit()
     assert v.name == 'hercules'
@@ -186,7 +190,6 @@ def test_build_index():
     # ms.build_index('name-and-age', Vertex, keys=[name, age], backing_index='search')
     # ms.commit()
     # assert tg.V.has('name', 'herc', predicate=CONTAINS).name == ['hercules']
-
 
 
 def test_build_edge_index():
