@@ -7,54 +7,26 @@ gremlin-python
 
 gremlin-python (gremthon) allows you to use Python syntax when traversing property graphs...
 
-local use
----------
+Quick Start
+-----------
 
-Install jython in your home directory
-
-Download http://search.maven.org/remotecontent?filepath=org/python/jython-installer/2.7-b3/jython-installer-2.7-b3.jar
-
-Run:
+Take a test drive locally (expects curl, java, and unzip commands to be available):
 
 .. code-block:: bash
 
-    $ java -jar jython-installer-2.7-b3.jar
+    $ ./test_drive/setup.sh && ./test_drive/run.sh
 
-jython doesn't seem to work well with pip so we'll use easy_install to fetch 3rd party dependencies:
 
-.. code-block:: bash
+This will download the necessary components, start titan, and run the rexster console with
+python scripting support enabled.
 
-    $ ~/jython2.7b3/bin/jython -c "$(curl -fsSL http://peak.telecommunity.com/dist/ez_setup.py)"
-
-Then you can install additional dependencies like:
-
-.. code-block:: bash
-
-    $ ~/jython2.7b3/bin/easy_install nose
-    $ ~/jython2.7b3/bin/easy_install rednose
-    $ ~/jython2.7b3/bin/easy_install requests
-
-You can load up an interactive jython session with all of the jars that ship with titan by setting
-the GREMTHON_JAR_DIRS environment variable:
+If you prefer to use Docker, you can pull the pokitdok/gremlin-python-test-drive container and run it
+to quickly evaluate gremlin-python:
 
 .. code-block:: bash
 
-    $ export GREMTHON_JAR_DIRS=/titan-0.5.3-hadoop2/lib/
+    $ docker run -i -t pokitdok/gremlin-python-test-drive
 
-Run a local, interactive gremthon session:
-
-.. code-block:: bash
-
-    $ ~/jython2.7b3/bin/jython -i gremthon.py
-
-That will automatically load up a sample graph so that you can follow http://gremlindocs.com/
-except with Python syntax
-
-Run all the python tests
-
-.. code-block:: bash
-
-    $ ~/jython2.7b3/bin/nosetests --rednose
 
 Compile, test and package the gremlin-python jar:
 
@@ -63,7 +35,7 @@ Compile, test and package the gremlin-python jar:
     $ mvn clean package
 
 rexster
-------
+-------
 
 To utilize Python syntax from within a rexster console, you'll need to drop in a couple of jar files
 and edit some xml configuration.
@@ -77,15 +49,14 @@ Edit conf/rexster-cassandra-es.xml (or the configuration file you're using) in y
         </script-engine>
 
 
-There should already be a script-engine defined for gremlin-groovy.   You can just paste that snippet for gremlin-python
-below it.
+See the rexster-test-drive.xml file for an example configuration that's used when you take a test drive.
 
-You'll also need to drop the files gremlin-python-{version}.jar and jython-standalone-{version}.jar
-into your titan lib directory.   gremlin-python has been tested with jython-standalone-2.7-b3.jar.
+You'll also need to put the files gremlin-python-{version}.jar and jython-standalone-{version}.jar
+into your titan lib directory.   gremlin-python has been tested with jython-standalone-2.7.0.jar.
 You can find a gremlin-python jar file for each release at https://github.com/pokitdok/gremlin-python/releases
-The jython standalone jar can be found at http://search.maven.org/remotecontent?filepath=org/python/jython-standalone/2.7-b3/jython-standalone-2.7-b3.jar
+The jython standalone jar can be found at http://www.jython.org/downloads.html
 
-After restarting titan + rexster, you should see python available in your rexster console:
+After (re)starting titan + rexster, you should see python available in your rexster console:
 
 
 .. code-block:: bash
@@ -101,10 +72,36 @@ After restarting titan + rexster, you should see python available in your rexste
 
     rexster[python]> g = rexster.getGraph("graph")
     ==>null
+    rexster[python]> from com.thinkaurelius.titan.example import GraphOfTheGodsFactory
+    ==>null
+    rexster[python]> GraphOfTheGodsFactory.load(g.graph)
+    ==>null
     rexster[python]> [v.name for v in g.V]
+    ==>nemean
+    ==>jupiter
+    ==>pluto
+    ==>hydra
+    ==>sky
+    ==>tartarus
     ==>hercules
+    ==>alcmene
+    ==>cerberus
+    ==>neptune
+    ==>saturn
+    ==>sea
+    rexster[python]> [v.name for v in g.V if v.age]
+    ==>jupiter
+    ==>pluto
+    ==>hercules
+    ==>alcmene
+    ==>neptune
+    ==>saturn
+    rexster[python]> [v.name for v in g.V.filter(lambda it: it.age > 4000)]
+    ==>jupiter
+    ==>neptune
+    ==>saturn
     rexster[python]> g.V.has('name','hercules')
-    ==>v[256]
+    ==>v[1536]
     rexster[python]> g.V.has('name','hercules').name
     ==>hercules
     rexster[python]> g.V.has('name','hercules').age
