@@ -56,8 +56,7 @@ into your titan lib directory.   gremlin-python has been tested with jython-stan
 You can find a gremlin-python jar file for each release at https://github.com/pokitdok/gremlin-python/releases
 The jython standalone jar can be found at http://www.jython.org/downloads.html
 
-After (re)starting titan + rexster, you should see python available in your rexster console:
-
+After (re)starting titan + rexster, you should see python available in your rexster console. We also included a sample graph to explore.
 
 .. code-block:: bash
 
@@ -72,40 +71,91 @@ After (re)starting titan + rexster, you should see python available in your rexs
 
     rexster[python]> g = rexster.getGraph("graph")
     ==>null
-    rexster[python]> from com.thinkaurelius.titan.example import GraphOfTheGodsFactory
+    rexster[python]> g.V.has('vertex_type','doctor').count()
+    ==>25
+    rexster[python]> g.V.has('vertex_type','consumer').count()
+    ==>1000
+    rexster[python]> g.E.has('edge_type','viewed').count()
+    ==>3470
+    rexster[python]> g.E.has('edge_type','scheduled_with').count()
+    ==>1000
+
+Exploring the properties of this graph a bit more... (note: the people in this example are fake)
+
+.. code-block:: bash
+
+    rexster[python]> list(g.V.has('vertex_type','doctor').map())[0]
+    ==>last_name=Moen
+    ==>first_name=Shana
+    ==>full_name=Dr. Shana Moen
+    ==>specialty=family doctor
+    ==>age=60
+    ==>vertex_type=doctor
+    rexster[python]> list(g.V.has('vertex_type','consumer').map())[0]
+    ==>last_name=Rogahn
+    ==>first_name=Ozella
+    ==>full_name=Ozella Rogahn
+    ==>age=32
+    ==>vertex_type=consumer
+    rexster[python]> list(g.V.has('age',55).full_name)[:5]
+    ==>Enrico Homenick
+    ==>Vincenzo Ebert
+    ==>Dr. Annetta McGlynn
+    ==>Bertram Jaskolski
+    ==>Mitchel Quitzon
+
+This example was set up to mimick a network of consumers viewing and scheduling appointments with doctors. For example:
+
+.. code-block:: bash
+
+    rexster[python]> g.V.has('full_name','Myriam Daugherty').out_e('viewed').in_v().full_name
+    ==>Dr. Alfred Dibbert
+    ==>Dr. Abraham Casper
+    ==>Dr. Cristobal Leffler
+    ==>Dr. Avis Crona
+    rexster[python]> g.V.has('full_name','Myriam Daugherty').out_e('scheduled_with').in_v().full_name
+    ==>Dr. Nellie Heidenreich
+
+Next, let us take a look at how to rank the providers according to how many consumers have viewed them.
+
+.. code-block:: bash
+
+    rexster[python]> ranked_by_viewed = {}
+    rexster[python]> g.E.has('edge_type','viewed').in_v().group_count(ranked_by_viewed, lambda it: it.full_name, lambda it: it.b+1.0)
+    rexster[python]> sorted_viewed_results = sorted(ranked_by_viewed.items(), key=lambda x:x[1], reverse=True)
     ==>null
-    rexster[python]> GraphOfTheGodsFactory.load(g.graph)
+    rexster[python]>sorted_viewed_results[:10]
+    ==>(u'Dr. Cristobal Leffler', 369.0)
+    ==>(u'Dr. Avis Crona', 366.0)
+    ==>(u'Dr. Shana Moen', 350.0)
+    ==>(u'Dr. Nellie Heidenreich', 337.0)
+    ==>(u'Dr. Donny Schaefer', 266.0)
+    ==>(u'Dr. Annetta McGlynn', 221.0)
+    ==>(u'Dr. Israel Kiehn', 201.0)
+    ==>(u'Dr. Roxanne Quigley', 196.0)
+    ==>(u'Dr. Elton Zboncak', 184.0)
+    ==>(u'Dr. Alfred Dibbert', 153.0)
+
+
+Next, let us take a look at how to rank the providers according to how many consumers have scheduled with them.
+
+.. code-block:: bash
+
+    rexster[python]> ranked_by_scheduled = {}
+    rexster[python]> g.E.has('edge_type','scheduled_with').in_v().group_count(ranked_by_scheduled, lambda it: it.full_name, lambda it: it.b+1.0)
+    rexster[python]> sorted_scheduled_results = sorted(ranked_by_scheduled.items(), key=lambda x:x[1], reverse=True)
     ==>null
-    rexster[python]> [v.name for v in g.V]
-    ==>nemean
-    ==>jupiter
-    ==>pluto
-    ==>hydra
-    ==>sky
-    ==>tartarus
-    ==>hercules
-    ==>alcmene
-    ==>cerberus
-    ==>neptune
-    ==>saturn
-    ==>sea
-    rexster[python]> [v.name for v in g.V if v.age]
-    ==>jupiter
-    ==>pluto
-    ==>hercules
-    ==>alcmene
-    ==>neptune
-    ==>saturn
-    rexster[python]> [v.name for v in g.V.filter(lambda it: it.age > 4000)]
-    ==>jupiter
-    ==>neptune
-    ==>saturn
-    rexster[python]> g.V.has('name','hercules')
-    ==>v[1536]
-    rexster[python]> g.V.has('name','hercules').name
-    ==>hercules
-    rexster[python]> g.V.has('name','hercules').age
-    ==>30
+    rexster[python]> sorted_scheduled_results[:10]
+    ==>(u'Dr. Nellie Heidenreich', 111.0)
+    ==>(u'Dr. Donny Schaefer', 104.0)
+    ==>(u'Dr. Anna Collier', 100.0)
+    ==>(u'Dr. Avis Crona', 83.0)
+    ==>(u'Dr. Elton Zboncak', 78.0)
+    ==>(u'Dr. Roxanne Quigley', 68.0)
+    ==>(u'Dr. Constance Kihn', 58.0)
+    ==>(u'Dr. Emmalee Ondricka', 57.0)
+    ==>(u'Dr. Annetta McGlynn', 54.0)
+    ==>(u'Dr. Kip Stoltenberg', 45.0)
 
 
 Troubleshooting
