@@ -71,8 +71,6 @@ After (re)starting titan + rexster, you should see python available in your rexs
 
     rexster[python]> g = rexster.getGraph("graph")
     ==>null
-    rexster[python]> from com.thinkaurelius.titan.example import GraphOfTheGodsFactory
-    ==>null
     rexster[python]> g.V.has('vertex_type','doctor').count()
     ==>25
     rexster[python]> g.V.has('vertex_type','consumer').count()
@@ -85,6 +83,7 @@ After (re)starting titan + rexster, you should see python available in your rexs
 Exploring the properties of this graph a bit more... (note: the people in this example are fake)
 
 .. code-block:: bash
+
     rexster[python]> list(g.V.has('vertex_type','doctor').map())[0]
     ==>last_name=Moen
     ==>first_name=Shana
@@ -108,6 +107,7 @@ Exploring the properties of this graph a bit more... (note: the people in this e
 This example was set up to mimick a network of consumers viewing and scheduling appointments with doctors. For example:
 
 .. code-block:: bash
+
     rexster[python]> g.V.has('full_name','Myriam Daugherty').out_e('viewed').in_v().full_name
     ==>Dr. Alfred Dibbert
     ==>Dr. Abraham Casper
@@ -119,6 +119,7 @@ This example was set up to mimick a network of consumers viewing and scheduling 
 Next, let us take a look at how to rank the providers according to how many consumers have viewed them.
 
 .. code-block:: bash
+
     rexster[python]> ranked_by_viewed = {}
     rexster[python]> g.E.has('edge_type','viewed').in_v().group_count(ranked_by_viewed, lambda it: it.full_name, lambda it: it.b+1.0)
     rexster[python]> sorted_viewed_results = sorted(ranked_by_viewed.items(), key=lambda x:x[1], reverse=True)
@@ -139,6 +140,7 @@ Next, let us take a look at how to rank the providers according to how many cons
 Next, let us take a look at how to rank the providers according to how many consumers have scheduled with them.
 
 .. code-block:: bash
+
     rexster[python]> ranked_by_scheduled = {}
     rexster[python]> g.E.has('edge_type','scheduled_with').in_v().group_count(ranked_by_scheduled, lambda it: it.full_name, lambda it: it.b+1.0)
     rexster[python]> sorted_scheduled_results = sorted(ranked_by_scheduled.items(), key=lambda x:x[1], reverse=True)
