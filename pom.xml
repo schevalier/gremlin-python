@@ -24,7 +24,7 @@
         <gremlin.version>2.5.0</gremlin.version>
         <pipes.version>2.5.0</pipes.version>
         <rexster.version>2.5.0</rexster.version>
-        <jython.version>2.7-b3</jython.version>
+        <jython.version>2.7.2b3</jython.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
